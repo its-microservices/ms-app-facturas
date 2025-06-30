@@ -6,7 +6,7 @@ import { UpdateFacturaDto } from './dto/update-factura.dto';
 
 @Controller()
 export class FacturaController {
-  constructor(private readonly facturaService: FacturaService) {}
+  constructor(private readonly facturaService: FacturaService) { }
 
   @MessagePattern('createFactura')
   create(@Payload() createFacturaDto: CreateFacturaDto) {
@@ -19,17 +19,17 @@ export class FacturaController {
   }
 
   @MessagePattern('findOneFactura')
-  findOne(@Payload() id: number) {
+  findOne(@Payload() id: string) {
     return this.facturaService.findOne(id);
   }
 
   @MessagePattern('updateFactura')
-  update(@Payload() updateFacturaDto: UpdateFacturaDto) {
-    return this.facturaService.update(updateFacturaDto.id, updateFacturaDto);
+  update(@Payload() payload: { id: string; data: UpdateFacturaDto }) {
+    return this.facturaService.update(payload);
   }
 
   @MessagePattern('removeFactura')
-  remove(@Payload() id: number) {
+  remove(@Payload() id: string) {
     return this.facturaService.remove(id);
   }
 }

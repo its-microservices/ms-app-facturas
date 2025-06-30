@@ -30,15 +30,55 @@ export class FacturaService {
     });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} factura`;
+  async findOne(id: string) {
+    return this._prisma.factura.findUnique({
+      where: { id },
+      include: { items: true },
+    });
   }
 
-  update(id: number, updateFacturaDto: UpdateFacturaDto) {
-    return `This action updates a #${id} factura`;
+  async update(payload: { id: string; data: UpdateFacturaDto }) {
+    const { id, data } = payload;
+
+    // Eliminamos los items existentes de la factura
+    await this._prisma.item.deleteMany({
+      where: { facturaId: id },
+    });
+
+    // Actualizamos la factura
+    await this._prisma.factura.update({
+      where: { id },
+      data: {
+        numero: data.numero,
+        cliente: data.cliente,
+        total: data.total,
+      },
+    });
+
+    // Insertamos los nuevos items
+    if (data.items?.length) {
+      console.log('Creando ítems:', data.items.length);
+      for (const item of data.items) {
+        await this._prisma.item.create({
+          data: {
+            descripcion: item.descripcion,
+            cantidad: item.cantidad,
+            precio: item.precio,
+            facturaId: id,
+          },
+        });
+      }
+    }
+
+    // Retornamos la factura actualizada con los nuevos items
+    return this._prisma.factura.findUnique({
+      where: { id },
+      include: { items: true },
+    });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} factura`;
+  async remove(id: string) {
+    await this._prisma.item.deleteMany({ where: { facturaId: id } });
+    return this._prisma.factura.delete({ where: { id } });
   }
 }
