@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { CreateFacturaDto } from './dto/create-factura.dto';
 import { UpdateFacturaDto } from './dto/update-factura.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { RpcException } from '@nestjs/microservices';
 
 @Injectable()
 export class FacturaService {
-
   constructor(private _prisma: PrismaService) { }
 
   create(createFacturaDto: CreateFacturaDto) {
@@ -24,26 +24,35 @@ export class FacturaService {
 
   findAll() {
     return this._prisma.factura.findMany({
-      include: {
-        items: true, // incluir los ítems relacionados
-      },
+      include: { items: true },
     });
   }
 
   async findOne(id: string) {
-    return this._prisma.factura.findUnique({
+    const factura = await this._prisma.factura.findUnique({
       where: { id },
       include: { items: true },
     });
+
+    if (!factura) {
+      throw new RpcException({ status: 404, message: `Factura con ID ${id} no encontrada` });
+    }
+
+    return factura;
   }
 
   async update(payload: { id: string; data: UpdateFacturaDto }) {
     const { id, data } = payload;
 
-    // Eliminamos los items existentes de la factura
-    await this._prisma.item.deleteMany({
-      where: { facturaId: id },
-    });
+    // Validar que la factura exista
+    const facturaExistente = await this._prisma.factura.findUnique({ where: { id } });
+
+    if (!facturaExistente) {
+      throw new RpcException({ status: 404, message: `Factura con ID ${id} no encontrada` });
+    }
+
+    // Eliminar ítems previos
+    await this._prisma.item.deleteMany({ where: { facturaId: id } });
 
     // Actualizamos la factura
     await this._prisma.factura.update({
@@ -57,7 +66,6 @@ export class FacturaService {
 
     // Insertamos los nuevos items
     if (data.items?.length) {
-      console.log('Creando ítems:', data.items.length);
       for (const item of data.items) {
         await this._prisma.item.create({
           data: {
@@ -78,6 +86,12 @@ export class FacturaService {
   }
 
   async remove(id: string) {
+    const factura = await this._prisma.factura.findUnique({ where: { id } });
+
+    if (!factura) {
+      throw new RpcException({ status: 404, message: `Factura con ID ${id} no encontrada` });
+    }
+
     await this._prisma.item.deleteMany({ where: { facturaId: id } });
     return this._prisma.factura.delete({ where: { id } });
   }
